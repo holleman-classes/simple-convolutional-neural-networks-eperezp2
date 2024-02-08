@@ -1,0 +1,67 @@
+import numpy as np
+from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, BatchNormalization, MaxPooling2D, Flatten, Dense
+from tensorflow.keras.utils import to_categorical
+from sklearn.model_selection import train_test_split
+
+def build_model1():
+    model = Sequential([
+        Conv2D(32, (3, 3), strides=(2, 2), padding='same', activation='relu', input_shape=(32, 32, 3)),
+        BatchNormalization(),
+        Conv2D(64, (3, 3), strides=(2, 2), padding='same', activation='relu'),
+        BatchNormalization(),
+        Conv2D(128, (3, 3), strides=(2, 2), padding='same', activation='relu'),
+        BatchNormalization(),
+        Conv2D(128, (3, 3), padding='same', activation='relu'),
+        BatchNormalization(),
+        Conv2D(128, (3, 3), padding='same', activation='relu'),
+        BatchNormalization(),
+        Conv2D(128, (3, 3), padding='same', activation='relu'),
+        BatchNormalization(),
+        Conv2D(128, (3, 3), padding='same', activation='relu'),
+        BatchNormalization(),
+        MaxPooling2D((4, 4)),
+        Flatten(),
+        Dense(128, activation='relu'),
+        BatchNormalization(),
+        Dense(10, activation='softmax')
+    ])
+    
+    model.compile(optimizer='adam',
+                  loss='sparse_categorical_crossentropy',
+                  metrics=['accuracy'])
+    return model
+
+# Load CIFAR-10 dataset
+(train_images, train_labels), (test_images, test_labels) = cifar10.load_data()
+
+# Normalize pixel values to be between 0 and 1
+train_images, test_images = train_images / 255.0, test_images / 255.0
+
+# Split the training set into training and validation sets
+train_images, val_images, train_labels, val_labels = train_test_split(
+    train_images, train_labels, test_size=0.2, random_state=42)
+
+# Build the model
+model1 = build_model1()
+model1.summary()  # Check the model architecture and parameter count
+
+# Train the model
+history = model1.fit(train_images, train_labels, epochs=50, 
+                     validation_data=(val_images, val_labels))
+
+# Evaluate the model on the test set
+test_loss, test_acc = model1.evaluate(test_images, test_labels, verbose=2)
+print(f'\nTest accuracy: {test_acc}')
+
+# Analyze overfitting by comparing training and validation accuracy
+import matplotlib.pyplot as plt
+
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.title('Training and Validation Accuracy')
+plt.legend()
+plt.show()
+
+# Analyze the plot to decide on the epoch count and strategies to combat overfitting if necessary
