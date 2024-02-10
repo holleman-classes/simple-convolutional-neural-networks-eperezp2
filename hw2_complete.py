@@ -1,88 +1,267 @@
-### Add lines to import modules as needed
+###Erick Perez Pereo
+### Homework 2 4127 
+# Essential TensorFlow and Keras imports for model building and dataset handling.
 import tensorflow as tf
-from tensorflow.keras import models, layers
-## 
+from tensorflow.keras import Input, layers, models, Model
+from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.utils import to_categorical
+### Additional utilities for data manipulation and visualization.
 
-def build_model1():
-    model = models.Sequential([
-        layers.Conv2D(32, (3, 3), activation='relu', input_shape=(32, 32, 3)),
-        layers.MaxPooling2D((2, 2)),
-        layers.Conv2D(64, (3, 3), activation='relu'),
-        layers.MaxPooling2D((2, 2)),
-        layers.Conv2D(64, (3, 3), activation='relu'),
-        layers.Flatten(),
-        layers.Dense(64, activation='relu'),
-        layers.Dense(10)
+import numpy as np
+from PIL import Image
+#Models
+
+##Model1
+def build_model1(input_shape=(32, 32, 3)):
+    # Define the model
+    model1 = tf.keras.Sequential([
+        layers.Input(shape=input_shape),
+        layers.Conv2D(32, kernel_size=(3,3), strides=(2,2), activation="relu", padding='same'),
+        layers.BatchNormalization(),
+        layers.Conv2D(64, kernel_size=(3,3), strides=(2,2), activation="relu", padding='same'),
+        layers.BatchNormalization(),
+        layers.Conv2D(128, kernel_size=(3,3), strides=(2,2), activation="relu", padding='same'),
+        layers.BatchNormalization()
     ])
-    return model
 
+    # Add four more pairs of Conv2D + BatchNorm
+    for _ in range(4):
+        model1.add(layers.Conv2D(128, kernel_size=(3,3), activation="relu", padding='same'))
+        model1.add(layers.BatchNormalization())
 
-def build_model2():
-    model = models.Sequential([
-        layers.Conv2D(32, (3, 3), activation='relu', input_shape=(32, 32, 3)),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.25),
-        layers.Conv2D(64, (3, 3), activation='relu'),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.25),
-        layers.Conv2D(128, (3, 3), activation='relu'),
-        layers.Flatten(),
-        layers.Dropout(0.5),
-        layers.Dense(128, activation='relu'),
-        layers.Dense(10)
+    model1.add(layers.MaxPooling2D(pool_size=(4, 4)))
+    model1.add(layers.Flatten())
+    model1.add(layers.Dense(128, activation='relu'))
+    model1.add(layers.BatchNormalization())
+    model1.add(layers.Dense(10, activation='softmax'))
+
+    return model1
+## model2 
+def build_model2(input_shape=(32, 32, 3)):
+    # Define the model
+
+    model2 = tf.keras.Sequential([
+        layers.Input(shape=input_shape),
+        layers.Conv2D(32, kernel_size=(3,3), strides=(2,2), activation="relu", padding='same'),
+        layers.BatchNormalization(),
+        layers.SeparableConv2D(64, kernel_size=(3,3), strides=(2,2), activation="relu", padding='same'),
+        layers.BatchNormalization(),
+        layers.SeparableConv2D(128, kernel_size=(3,3), strides=(2,2), activation="relu", padding='same'),
+        layers.BatchNormalization()
     ])
-    return model
 
+    # Add four more pairs of Conv2D + BatchNorm
+    for _ in range(4):
+        model2.add(layers.SeparableConv2D(128, kernel_size=(3,3), strides=(2,2), activation="relu", padding='same'))
+        model2.add(layers.BatchNormalization())
 
-def build_model3():
-    inputs = tf.keras.Input(shape=(32, 32, 3))
-    x = layers.Conv2D(32, 3, activation='relu')(inputs)
-    x = layers.Conv2D(64, 3, activation='relu', padding='same')(x)
-    block_1_output = layers.add([x, inputs])
+    model2.add(layers.MaxPooling2D(pool_size=(1, 1)))
+    model2.add(layers.Flatten())
+    model2.add(layers.Dense(128, activation='relu'))
+    model2.add(layers.BatchNormalization())
+    model2.add(layers.Dense(10, activation='softmax'))
 
-    x = layers.Conv2D(64, 3, activation='relu', padding='same')(block_1_output)
-    x = layers.Conv2D(64, 3, activation='relu', padding='same')(x)
-    block_2_output = layers.add([x, block_1_output])
+    return model2
+###Model3
+def build_model3(input_shape=(32, 32, 3)):
+    # Define input layer
+    inputs = tf.keras.Input(shape=input_shape)
+    # Convolutional block
+    x = layers.Conv2D(32, kernel_size=(3,3), strides=(2,2), activation="relu", padding='same')(inputs)
+    x = layers.BatchNormalization()(x)
+    shortcut = x
+    x = layers.Conv2D(64, kernel_size=(3,3), strides=(2,2), activation="relu", padding='same')(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Dropout(0.2)(x)
+    x = layers.Conv2D(128, kernel_size=(3,3), strides=(2,2), activation="relu", padding='same')(x)
+    x = layers.BatchNormalization()(x)
+    # Skip connection after the fourth convolutional layer
+    shortcut = layers.Conv2D(128, kernel_size=(1, 1), strides=(4, 4), padding='same')(shortcut)
+    x = layers.Add()([x, shortcut])
+    shortcut2 = x
+    # Add four more pairs of Conv2D + BatchNorm + Dropout
+    for _ in range(2):
+        x = layers.Conv2D(128, kernel_size=(3,3), activation="relu", padding='same')(x)
+        x = layers.BatchNormalization()(x)
+        x = layers.Dropout(0.2)(x)
+    x = layers.Add()([x, shortcut2])
+    shortcut3 = x
+    for _ in range(2):
+        x = layers.Conv2D(128, kernel_size=(3,3), activation="relu", padding='same')(x)
+        x = layers.BatchNormalization()(x)
+        x = layers.Dropout(0.2)(x)
+    x = layers.Add()([x, shortcut3])
+    x = layers.MaxPooling2D(pool_size=(4, 4))(x)
+    x = layers.Flatten()(x)
+    x = layers.Dense(128, activation='relu')(x)
+    x = layers.BatchNormalization()(x)
+    outputs = layers.Dense(10, activation='softmax')(x)
+    # Create model
+    model3 = tf.keras.Model(inputs=inputs, outputs=outputs)
+    return model3
 
-    x = layers.Conv2D(64, 3, activation='relu')(block_2_output)
-    x = layers.GlobalAveragePooling2D()(x)
-    x = layers.Dense(256, activation='relu')(x)
-    x = layers.Dropout(0.5)(x)
-    outputs = layers.Dense(10)(x)
-
-    model = tf.keras.Model(inputs, outputs)
-    return model
-
-
-def build_model50k():
-    model = models.Sequential([
-        layers.SeparableConv2D(32, (3, 3), activation='relu', input_shape=(32, 32, 3)),
-        layers.MaxPooling2D((2, 2)),
-        layers.SeparableConv2D(64, (3, 3), activation='relu'),
-        layers.MaxPooling2D((2, 2)),
-        layers.SeparableConv2D(128, (3, 3), activation='relu'),
-        layers.Flatten(),
-        layers.Dense(64, activation='relu'),
-        layers.Dense(10)
+##Model50k
+def build_model50k(input_shape=(32, 32, 3), dropout_rate=0.2):
+    model50k = tf.keras.Sequential([
+        layers.Input(shape=input_shape),
+        layers.DepthwiseConv2D(kernel_size=(3,3), padding='same'),
+        layers.Conv2D(32, kernel_size=(1,1), activation="relu", padding='same'),
+        layers.BatchNormalization(),
+        layers.Dropout(dropout_rate),
+        layers.DepthwiseConv2D(kernel_size=(3,3), padding='same'),
+        layers.Conv2D(64, kernel_size=(1,1), strides=(4,4), activation="relu", padding='same'),
+        layers.BatchNormalization(),
+        layers.Dropout(dropout_rate),
+        layers.DepthwiseConv2D(kernel_size=(3,3), padding='same'),
+        layers.Conv2D(96, kernel_size=(1,1), activation="relu", padding='same'),
+        layers.BatchNormalization(),
+        layers.Dropout(dropout_rate)
     ])
-    return model
-
+    model50k.add(layers.MaxPooling2D(pool_size=(4, 4)))
+    model50k.add(layers.Flatten())
+    model50k.add(layers.Dense(96, activation='relu'))
+    model50k.add(layers.BatchNormalization())
+    model50k.add(layers.Dropout(dropout_rate))
+    model50k.add(layers.Dense(10, activation='softmax'))
+    return model50k
 
 # no training or dataset construction should happen above this line
 if __name__ == '__main__':
 
   ########################################
-  ## Add code here to Load the CIFAR10 data set
+  (train_images, train_labels), (test_images, test_labels) = cifar10.load_data()
+  class_names = ['airplane','automobile','bird','cat','deer','dog','frog','horse','ship','truck']
+  train_labels = train_labels.squeeze()
+  test_labels = test_labels.squeeze()
+
+  input_shape = train_images.shape[1:]
+  train_images = train_images / 255.0
+  test_images = test_images / 255.0
 
   ########################################
   ## Build and train model 1
   model1 = build_model1()
   # compile and train model 1.
 
+  # Train the model
+  model1.compile(optimizer='adam',
+              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+              metrics=['accuracy'])
+
+  history = model1.fit(train_images, train_labels, epochs=50, validation_data=(test_images, test_labels))
+  test_loss, test_acc = model1.evaluate(train_images, train_labels, verbose=2)
+
+#image proc test for model1
+  image_path = "test_image_model1.png"
+  image = Image.open(image_path)
+  image = image.resize((32, 32))
+
+  if image.mode != 'RGB':
+    image = image.convert('RGB')
+
+  # Convert image to numpy array and normalize
+  image_array = np.array(image) / 255.0  
+  # Expand dimensions to match the input shape expected by the model1
+  image_array = np.expand_dims(image_array, axis=0)
+
+  # Make predictions
+  predictions = model1.predict(image_array)
+
+  # Get the predicted class
+  predicted_class = np.argmax(predictions[0])
+
+  print("Predicted class:", predicted_class)
+
   ## Build, compile, and train model 2 (DS Convolutions)
   model2 = build_model2()
 
-  
-  ### Repeat for model 3 and your best sub-50k params model
-  
-  
+  model2.compile(optimizer='adam',
+              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+              metrics=['accuracy'])
+
+  history2 = model2.fit(train_images, train_labels, epochs=50, validation_data=(test_images, test_labels))
+  test_loss, test_acc = model2.evaluate(train_images, train_labels, verbose=2)
+
+#image proc test for model2
+  image_path = "test_image_model2.png"
+  image = Image.open(image_path)
+  image = image.resize((32, 32))
+
+  if image.mode != 'RGB':
+    image = image.convert('RGB')
+
+  # Convert image to numpy array and normalize
+  image_array = np.array(image) / 255.0
+
+  # Expand dimensions to match the input shape expected by the model
+  image_array = np.expand_dims(image_array, axis=0)
+
+  # Make predictions
+  predictions = model2.predict(image_array)
+
+  # Get the predicted class
+  predicted_class = np.argmax(predictions[0])
+  print("Predicted class:", predicted_class)
+
+  ### Repeat for model 3
+  model3 = build_model3()
+
+  model3.compile(optimizer='adam',
+              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+              metrics=['accuracy'])
+  history = model3.fit(train_images, train_labels, epochs=50, validation_data=(test_images, test_labels))
+  test_loss, test_acc = model3.evaluate(train_images, train_labels, verbose=2)
+
+#image processing test for model 3
+  image_path = "test_image_model3.png"
+  image = Image.open(image_path)
+  image = image.resize((32, 32))
+
+  if image.mode != 'RGB':
+    image = image.convert('RGB')
+
+  # Convert image to numpy array and normalize
+  image_array = np.array(image) / 255.0  
+
+  # Expand dimensions to match the input shape expected by the model
+  image_array = np.expand_dims(image_array, axis=0)
+
+  # Make predictions
+  predictions = model1.predict(image_array)
+
+  # Get the predicted class
+  predicted_class = np.argmax(predictions[0])
+  print("Predicted class:", predicted_class)
+
+
+  ## Build and train model 50k
+  model50k = build_model50k()
+ 
+  model50k.compile(optimizer='adam',
+              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+              metrics=['accuracy'])
+  history = model50k.fit(train_images, train_labels, epochs=50, validation_data=(test_images, test_labels))
+  test_loss, test_acc = model50k.evaluate(train_images, train_labels, verbose=2)
+  model50k = build_model50k(input_shape=(32, 32, 3), dropout_rate=0.2)
+  model50k.save("best_model.h5")
+
+#image processing test for model 50k
+  image_path = "Airplane.png"
+  image = Image.open(image_path)
+  image = image.resize((32, 32))
+
+  if image.mode != 'RGB':
+    image = image.convert('RGB')
+
+  # Convert image to numpy array and normalize
+  image_array = np.array(image) / 255.0
+
+  # Expand dimensions to match the input shape expected by the model
+  image_array = np.expand_dims(image_array, axis=0)
+
+  # Make predictions
+  predictions = model1.predict(image_array)
+
+  # Get the predicted class
+  predicted_class = np.argmax(predictions[0])
+  print("Predicted class:", predicted_class)
